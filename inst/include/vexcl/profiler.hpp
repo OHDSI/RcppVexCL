@@ -44,12 +44,12 @@ THE SOFTWARE.
 #include <vector>
 #include <cassert>
 
-#if defined(_MSC_VER) && (_MSC_VER < 1700)
-#  define VEXCL_USE_BOOST_CHRONO
-#  include <boost/chrono.hpp>
-#else
+// #if defined(_MSC_VER) && (_MSC_VER < 1700)
+// #  define VEXCL_USE_BOOST_CHRONO
+// #  include <boost/chrono.hpp>
+// #else
 #  include <chrono>
-#endif
+// #endif
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
