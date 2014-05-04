@@ -1,8 +1,6 @@
 
 #include <Rcpp.h>
 
-#define BOOST_ERROR_CODE_HEADER_ONLY
-
 #include "vexcl/vexcl.hpp"
 
 using namespace Rcpp;

@@ -8,10 +8,13 @@ Maintainer: Who to complain to <yourfault@somewhere.net>
 Description: More about what it does (maybe more than one line)
 License: What Licence is it under ?
 SystemRequirements: C++11
-Imports: Rcpp (>= 0.11.1)
+Imports: 
+  Rcpp 
 Depends:
   Rcpp (>= 0.11.1),
-  BH (>= 1.54.0)
+  BH (>= 1.54.0),
+  BoostCompiledLibraries (>= 1.54.0)
 LinkingTo:
   Rcpp,
-  BH
+  BH,
+  BoostCompiledLibraries
