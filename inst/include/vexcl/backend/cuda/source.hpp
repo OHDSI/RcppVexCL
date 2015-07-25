@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -47,12 +47,6 @@ namespace vex {
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
-
-template <class T> struct remove_ptr;
-
-template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
 
 template <class T>
 struct type_name_impl <global_ptr<T> > {
@@ -168,8 +162,7 @@ class source_generator {
         }
 
         template <class Prm>
-        source_generator& smem_parameter(const std::string &name = "smem") {
-            (void)name;
+        source_generator& smem_parameter(const std::string& = "smem") {
             return *this;
         }
 
@@ -199,8 +192,7 @@ class source_generator {
             return *this;
         }
 
-        source_generator& barrier(bool global = false) {
-            (void)global;
+        source_generator& barrier(bool /*global*/ = false) {
             src << "__syncthreads();";
             return *this;
         }

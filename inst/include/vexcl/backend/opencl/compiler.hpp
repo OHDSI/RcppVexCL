@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,10 +32,17 @@ THE SOFTWARE.
  */
 
 #include <cstdlib>
+
+#include <boost/thread.hpp>
+
 #include <vexcl/backend/common.hpp>
+#include <vexcl/detail/backtrace.hpp>
 
 #ifndef __CL_ENABLE_EXCEPTIONS
 #  define __CL_ENABLE_EXCEPTIONS
+#endif
+#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
+#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
 #endif
 #include <CL/cl.hpp>
 
@@ -45,9 +52,13 @@ namespace opencl {
 
 /// Saves program binaries for future reuse.
 inline void save_program_binaries(
-        const std::string &hash, const cl::Program &program, const std::string &source
+        const std::string &hash, const cl::Program &program
         )
 {
+    // Prevent writing to the same file by several threads at the same time.
+    static boost::mutex mx;
+    boost::lock_guard<boost::mutex> lock(mx);
+
     std::ofstream bfile(program_binaries_path(hash, true) + "kernel", std::ios::binary);
     if (!bfile) return;
 
@@ -59,8 +70,6 @@ inline void save_program_binaries(
     bfile.write((char*)&sizes[0], sizeof(size_t));
     bfile.write(binaries[0], sizes[0]);
     delete[] binaries[0];
-
-    bfile << "\n" << source << "\n";
 }
 
 /// Tries to read program binaries from file cache.
@@ -125,12 +134,8 @@ inline cl::Program build_sources(
 
 #ifdef VEXCL_CACHE_KERNELS
     // Get unique (hopefully) hash string for the kernel.
-    std::ostringstream fullsrc;
-
-    fullsrc
-        << "// Platform: " << cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>()
-        << "\n// Device:   " << device[0].getInfo<CL_DEVICE_NAME>()
-        << "\n// Compiler: "
+    std::ostringstream compiler_tag;
+    compiler_tag
 #if defined(_MSC_VER)
         << "MSC " << _MSC_VER
 #elif defined(__clang__)
@@ -140,10 +145,17 @@ inline cl::Program build_sources(
 #else
         << "unknown"
 #endif
-        << "\n// options:  " << compile_options
-        << "\n" << source;
+        ;
 
-    std::string hash = sha1( fullsrc.str() );
+    sha1_hasher sha1;
+    sha1.process(source)
+        .process(cl::Platform(device[0].getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>())
+        .process(device[0].getInfo<CL_DEVICE_NAME>())
+        .process(compile_options)
+        .process(compiler_tag.str())
+        ;
+
+    std::string hash = static_cast<std::string>(sha1);
 
     // Try to get cached program binaries:
     try {
@@ -166,18 +178,20 @@ inline cl::Program build_sources(
                   << std::endl
                   << program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device[0])
                   << std::endl;
+
+        vex::detail::print_backtrace();
         throw;
     }
 
 #ifdef VEXCL_CACHE_KERNELS
     // Save program binaries for future reuse:
-    save_program_binaries(hash, program, fullsrc.str());
+    save_program_binaries(hash, program);
 #endif
 
     return program;
 }
 
-} // namespace cuda
+} // namespace opencl
 } // namespace backend
 } // namespace vex
 

@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -165,7 +165,7 @@ struct expression_properties< casted_expession<T, Expr> > {
 
 /// \endcond
 
-#ifdef VEXCL_BACKEND_OPENCL
+#if !defined(VEXCL_BACKEND_CUDA)
 
 #ifdef DOXYGEN
 #define VEXCL_CONVERT_FUNCTIONS(to)                                            \

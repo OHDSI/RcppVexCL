@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -36,19 +36,12 @@ THE SOFTWARE.
 #include <stdexcept>
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 
 #include <boost/io/ios_state.hpp>
 
-#if defined(VEXCL_BACKEND_OPENCL)
-#  ifndef __CL_ENABLE_EXCEPTIONS
-#    define __CL_ENABLE_EXCEPTIONS
-#  endif
-#  include <CL/cl.hpp>
-#elif defined(VEXCL_BACKEND_CUDA)
-#  include <CL/cl_platform.h>
-#else
-#  error Neither OpenCL nor CUDA backend is selected
-#endif
+// This should be available for all backends
+#include <CL/cl_platform.h>
 
 /// \cond INTERNAL
 typedef unsigned int  uint;

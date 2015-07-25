@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ THE SOFTWARE.
 #include <cuda.h>
 
 #include <vexcl/backend/common.hpp>
+#include <vexcl/detail/backtrace.hpp>
 
 namespace vex {
 namespace backend {
@@ -60,30 +61,35 @@ inline CUmodule build_sources(
 #  endif
 #endif
 
+    queue.context().set_current();
+
     auto cc = queue.device().compute_capability();
-    std::ostringstream fullsrc;
-    fullsrc << "// Device:  " << queue.device().name() << "\n"
-            << "// CC:      " << std::get<0>(cc) << "." << std::get<1>(cc) << "\n"
-            << "// options: " << options << "\n"
-            << source;
+    std::ostringstream ccstr;
+    ccstr << std::get<0>(cc) << std::get<1>(cc);
+
+    sha1_hasher sha1;
+    sha1.process(source)
+        .process(queue.device().name())
+        .process(options)
+        .process(ccstr.str())
+        ;
+
+    std::string hash = static_cast<std::string>(sha1);
 
     // Write source to a .cu file
-    std::string hash = sha1( fullsrc.str() );
     std::string basename = program_binaries_path(hash, true) + "kernel";
     std::string ptxfile  = basename + ".ptx";
 
     if ( !boost::filesystem::exists(ptxfile) ) {
         std::string cufile = basename + ".cu";
 
-
         {
             std::ofstream f(basename + ".cu");
-            f << fullsrc.str();
+            f << source;
         }
 
         // Compile the source to ptx.
         std::ostringstream cmdline;
-        auto cc = queue.device().compute_capability();
         cmdline
             << "nvcc -ptx -O3"
             << " -arch=sm_" << std::get<0>(cc) << std::get<1>(cc)
@@ -91,8 +97,10 @@ inline CUmodule build_sources(
             << " -o " << ptxfile << " " << cufile;
         if (0 != system(cmdline.str().c_str()) ) {
 #ifndef VEXCL_SHOW_KERNELS
-            std::cerr << fullsrc.str() << std::endl;
+            std::cerr << source << std::endl;
 #endif
+
+            vex::detail::print_backtrace();
             throw std::runtime_error("nvcc invocation failed");
         }
     }

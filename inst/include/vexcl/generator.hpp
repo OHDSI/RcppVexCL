@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -39,11 +39,12 @@ THE SOFTWARE.
 #include <memory>
 
 #include <boost/proto/proto.hpp>
-#include <boost/tuple/tuple.hpp>
-#include <boost/fusion/adapted/boost_tuple.hpp>
 #include <boost/function_types/parameter_types.hpp>
 #include <boost/function_types/result_type.hpp>
 #include <boost/function_types/function_arity.hpp>
+
+#include <boost/fusion/include/for_each.hpp>
+#include <boost/fusion/include/vector_tie.hpp>
 
 #include <vexcl/util.hpp>
 #include <vexcl/operations.hpp>
@@ -252,6 +253,20 @@ struct symbolic_context {
     VEXCL_UNARY_POST_OPERATION(post_dec, --);
 
 #undef VEXCL_UNARY_POST_OPERATION
+
+    template <typename Expr>
+    struct eval<Expr, boost::proto::tag::if_else_> {
+        typedef void result_type;
+        void operator()(const Expr &expr, symbolic_context &ctx) const {
+            get_recorder() << "( ";
+            boost::proto::eval(boost::proto::child_c<0>(expr), ctx);
+            get_recorder() << " ? ";
+            boost::proto::eval(boost::proto::child_c<1>(expr), ctx);
+            get_recorder() << " : ";
+            boost::proto::eval(boost::proto::child_c<2>(expr), ctx);
+            get_recorder() << " )";
+        }
+    };
 
     template <class Expr>
     struct eval<Expr, boost::proto::tag::function> {
@@ -523,7 +538,7 @@ class Kernel {
               ) : queue(queue)
         {
             static_assert(
-                    boost::tuples::length<ArgTuple>::value == NP,
+                    boost::fusion::result_of::size<ArgTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -559,14 +574,14 @@ class Kernel {
         /// Launches kernel with provided parameters.
         template <class... Param>
         void operator()(const Param&... param) {
-            launch(boost::tie(param...));
+            launch(boost::fusion::vector_tie(param...));
         }
 #else
 
 #define VEXCL_FUNCALL_OPERATOR(z, n, data)                                     \
   template <BOOST_PP_ENUM_PARAMS(n, class Param)>                              \
   void operator()(BOOST_PP_ENUM_BINARY_PARAMS(n, const Param, &param)) {       \
-    launch(boost::tie(BOOST_PP_ENUM_PARAMS(n, param)));                        \
+    launch(boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, param)));         \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
@@ -579,7 +594,7 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
         template <class ParamTuple>
         void launch(const ParamTuple &param) {
             static_assert(
-                    boost::tuples::length<ParamTuple>::value == NP,
+                    boost::fusion::result_of::size<ParamTuple>::value == NP,
                     "Wrong number of kernel parameters"
                     );
 
@@ -659,7 +674,12 @@ BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_FUNCALL_OPERATOR, ~)
             typedef size_t result_type;
 
             template <class T>
-            size_t operator()(size_t s, const T &v) const {
+            size_t operator()(size_t s, const T&) const {
+                return s;
+            }
+
+            template <class T>
+            size_t operator()(size_t s, const vector<T> &v) const {
                 return std::max(s, v.part_size(device));
             }
         };
@@ -706,13 +726,13 @@ Kernel<sizeof...(Args)> build_kernel(
         const std::string &name, const std::string& body, const Args&... args
         )
 {
-    return Kernel<sizeof...(Args)>(queue, name, body, boost::tie(args...));
+    return Kernel<sizeof...(Args)>(queue, name, body, boost::fusion::vector_tie(args...));
 }
 
 /// Builds function body from recorded expression and symbolic return value and parameters.
 template <class Ret, class... Args>
 std::string make_function(std::string body, const Ret &ret, const Args&... args) {
-    return Function(body, ret, boost::tie(args...)).get();
+    return Function(body, ret, boost::fusion::vector_tie(args...)).get();
 }
 #else
 
@@ -722,15 +742,15 @@ std::string make_function(std::string body, const Ret &ret, const Args&... args)
                          const std::string & name, const std::string & body,   \
                          BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {    \
     return Kernel<n>(queue, name, body,                                        \
-                     boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)));                \
+                     boost::fusion::vector_tie(BOOST_PP_ENUM_PARAMS(n, arg))); \
   }
 
 #define VEXCL_MAKE_FUNCTION(z, n, data)                                        \
-  template<class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)> std::string          \
-  make_function(std::string body, const Ret & ret,                             \
-                BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) {             \
-    return Function(body, ret, boost::tie(BOOST_PP_ENUM_PARAMS(n, arg)))       \
-        .get();                                                                \
+  template <class Ret, BOOST_PP_ENUM_PARAMS(n, class Arg)>                     \
+  std::string make_function(std::string body, const Ret &ret,                  \
+                            BOOST_PP_ENUM_BINARY_PARAMS(n, const Arg, &arg)) { \
+    return Function(body, ret, boost::fusion::vector_tie(                      \
+                                   BOOST_PP_ENUM_PARAMS(n, arg))).get();       \
   }
 
 BOOST_PP_REPEAT_FROM_TO(1, VEXCL_MAX_ARITY, VEXCL_BUILD_KERNEL, ~)

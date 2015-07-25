@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -47,12 +47,7 @@ namespace vex {
 template <class T> struct global_ptr {};
 template <class T> struct shared_ptr {};
 template <class T> struct regstr_ptr {};
-
-template <class T> struct remove_ptr;
-
-template <class T> struct remove_ptr< global_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< shared_ptr<T> > { typedef T type; };
-template <class T> struct remove_ptr< regstr_ptr<T> > { typedef T type; };
+template <class T> struct constant_ptr {};
 
 template <class T>
 struct type_name_impl <global_ptr<T> > {
@@ -108,6 +103,21 @@ struct type_name_impl <regstr_ptr<const T> > {
     }
 };
 
+// Note that constant_ptr<T> and global_ptr<const T> are not the same.
+// The former uses constant cache for read-only access to vector data
+// while the latter simply informs the compiler that it is illegal to modify
+// the vector data.
+template <class T>
+struct type_name_impl <constant_ptr<T> > {
+    static std::string get() {
+        std::ostringstream s;
+        s << "constant "
+          << type_name<typename std::decay<T>::type>()
+          << " *";
+        return s.str();
+    }
+};
+
 template<typename T>
 struct type_name_impl<T*>
 {
@@ -124,7 +134,7 @@ namespace opencl {
  * Defines pragmas necessary to work with double precision and anything
  * provided by the user with help of push_program_header().
  */
-inline std::string standard_kernel_header(const cl::CommandQueue &q) {
+inline std::string standard_kernel_header(const command_queue &q) {
     return std::string(
         "#if defined(cl_khr_fp64)\n"
         "#  pragma OPENCL EXTENSION cl_khr_fp64: enable\n"
@@ -144,7 +154,7 @@ class source_generator {
     public:
         source_generator() : indent(0), first_prm(true), cpu(false) { }
 
-        source_generator(const cl::CommandQueue &queue)
+        source_generator(const command_queue &queue)
             : indent(0), first_prm(true), cpu( is_cpu(queue) )
         {
             src << standard_kernel_header(queue);
@@ -195,8 +205,7 @@ class source_generator {
         }
 
         template <class Prm>
-        source_generator& smem_declaration(const std::string &name = "smem") {
-            (void)name;
+        source_generator& smem_declaration(const std::string& = "smem") {
             return *this;
         }
 

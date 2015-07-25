@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -150,7 +150,10 @@ VEX_FUNCTION_V1(diff_cube, double(double, double),
             VEXCL_FUNCTION_NTH_ARG_NAME(n, args));
 
 #define VEXCL_FUNCTION_DEFINE_DEP(z, data, dep)                                \
-        BOOST_PP_CAT(vex_function_, dep)::define(src);
+    {                                                                          \
+        typedef decltype(dep) dep_type;                                        \
+        dep_type::define(src);                                                 \
+    }
 
 #define VEX_FUNCTION_SINK(rtype, func_name, nargs, args, deps, body)           \
 struct vex_function_##func_name                                                \
@@ -333,7 +336,7 @@ rtype operator()(VEXCL_DUAL_FUNCTOR_ARGS(args)) const {                        \
 #define VEXCL_BUILTIN_PRINT_BOOST_REF(z, n, data) boost::ref(arg##n)
 
 #define VEX_BUILTIN_FUNCTION(nargs, func)                                      \
-    struct func##_func : vex::builtin_function {                                    \
+    struct func##_func : vex::builtin_function {                               \
         static const char *name() { return #func; }                            \
     };                                                                         \
     template <BOOST_PP_ENUM_PARAMS(nargs, class Arg)>                          \
@@ -436,7 +439,12 @@ VEX_BUILTIN_FUNCTION( 2, mul_hi )
 VEX_BUILTIN_FUNCTION( 1, nan )
 VEX_BUILTIN_FUNCTION( 2, nextafter )
 VEX_BUILTIN_FUNCTION( 1, normalize )
+#if defined(VEXCL_BACKEND_CUDA)
+VEX_BUILTIN_FUNCTION( 1, __popc )
+VEX_BUILTIN_FUNCTION( 1, __popcll )
+#else
 VEX_BUILTIN_FUNCTION( 1, popcount )
+#endif
 VEX_BUILTIN_FUNCTION( 2, pow )
 VEX_BUILTIN_FUNCTION( 2, pown )
 VEX_BUILTIN_FUNCTION( 2, powr )

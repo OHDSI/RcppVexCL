@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_FILTER_HPP
-#define VEXCL_BACKEND_OPENCL_FILTER_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_FILTER_HPP
+#define VEXCL_BACKEND_COMPUTE_FILTER_HPP
 
 /*
 The MIT License
@@ -26,9 +26,9 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/filter.hpp
+ * \file   vexcl/backend/compute/filter.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Device filters for OpenCL backend.
+ * \brief  Device filters for Boost.Compute backend.
  */
 
 #include <iostream>
@@ -42,14 +42,7 @@ THE SOFTWARE.
 #include <boost/filesystem.hpp>
 #include <boost/config.hpp>
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#endif
-#include <CL/cl.hpp>
-
+#include <boost/compute/core.hpp>
 
 namespace vex {
 
@@ -60,8 +53,8 @@ namespace Filter {
     struct Vendor {
         explicit Vendor(std::string name) : vendor(std::move(name)) {}
 
-        bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_VENDOR>().find(vendor) != std::string::npos;
+        bool operator()(const boost::compute::device &d) const {
+            return d.vendor().find(vendor) != std::string::npos;
         }
 
         private:
@@ -72,8 +65,8 @@ namespace Filter {
     struct Platform {
         explicit Platform(std::string name) : platform(std::move(name)) {}
 
-        bool operator()(const cl::Device &d) const {
-            return cl::Platform(d.getInfo<CL_DEVICE_PLATFORM>()).getInfo<CL_PLATFORM_NAME>().find(platform) != std::string::npos;
+        bool operator()(const boost::compute::device &d) const {
+            return d.platform().name().find(platform) != std::string::npos;
         }
 
         private:
@@ -84,8 +77,8 @@ namespace Filter {
     struct Name {
         explicit Name(std::string name) : devname(std::move(name)) {}
 
-        bool operator()(const cl::Device &d) const {
-            return d.getInfo<CL_DEVICE_NAME>().find(devname) != std::string::npos;
+        bool operator()(const boost::compute::device &d) const {
+            return d.name().find(devname) != std::string::npos;
         }
 
         private:
@@ -97,8 +90,8 @@ namespace Filter {
         explicit Type(cl_device_type t)    : type(t)              {}
         explicit Type(const std::string t) : type(device_type(t)) {}
 
-        bool operator()(const cl::Device &d) const {
-            return 0 != (d.getInfo<CL_DEVICE_TYPE>() & type);
+        bool operator()(const boost::compute::device &d) const {
+            return 0 != (d.type() & type);
         }
 
         private:
@@ -127,12 +120,10 @@ namespace Filter {
 
     /// \cond INTERNAL
     struct DoublePrecisionFilter {
-        bool operator()(const cl::Device &d) const {
-            std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
-            return (
-                    ext.find("cl_khr_fp64") != std::string::npos ||
-                    ext.find("cl_amd_fp64") != std::string::npos
-                   );
+        bool operator()(const boost::compute::device &d) const {
+            return
+                d.supports_extension("cl_khr_fp64") ||
+                d.supports_extension("cl_amd_fp64");
         }
     };
     /// \endcond
@@ -146,9 +137,8 @@ namespace Filter {
 
         Extension(std::string ext) : extension(std::move(ext)) {}
 
-        bool operator()(const cl::Device& d) const {
-            std::string ext = d.getInfo<CL_DEVICE_EXTENSIONS>();
-            return ext.find(extension) != std::string::npos;
+        bool operator()(const boost::compute::device &d) const {
+            return d.supports_extension(extension);
         }
     };
 
@@ -162,23 +152,16 @@ namespace Filter {
     );
 
     /// List of device filters based on environment variables.
-    inline std::vector< std::function<bool(const cl::Device&)> >
+    inline std::vector< std::function<bool(const boost::compute::device&)> >
     backend_env_filters()
     {
-        std::vector< std::function<bool(const cl::Device&)> > filter;
+        std::vector< std::function<bool(const boost::compute::device&)> > filter;
 
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-        const char *platform  = getenv("OCL_PLATFORM");
-        const char *vendor    = getenv("OCL_VENDOR");
-        const char *name      = getenv("OCL_DEVICE");
-        const char *devtype   = getenv("OCL_TYPE");
-        const char *extension = getenv("OCL_EXTENSION");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
+        const char *platform  = boost::compute::detail::getenv("OCL_PLATFORM");
+        const char *vendor    = boost::compute::detail::getenv("OCL_VENDOR");
+        const char *name      = boost::compute::detail::getenv("OCL_DEVICE");
+        const char *devtype   = boost::compute::detail::getenv("OCL_TYPE");
+        const char *extension = boost::compute::detail::getenv("OCL_EXTENSION");
 
         if (platform)  filter.push_back(Platform(platform));
         if (vendor)    filter.push_back(Vendor(vendor));
@@ -192,46 +175,25 @@ namespace Filter {
     /// \internal Exclusive access to selected devices.
     class ExclusiveFilter {
         private:
-            std::function<bool(const cl::Device&)> filter;
+            std::function<bool(const boost::compute::device&)> filter;
 
             static std::map<cl_device_id, std::string> get_uids() {
                 std::map<cl_device_id, std::string> uids;
 
-                std::vector<cl::Platform> platform;
-                cl::Platform::get(&platform);
+                std::vector<boost::compute::device> device = boost::compute::system::devices();
 
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#endif
-                const char *lock_dir = getenv("VEXCL_LOCK_DIR");
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
+                const char *lock_dir = boost::compute::detail::getenv("VEXCL_LOCK_DIR");
 
-                for(size_t p_id = 0; p_id < platform.size(); p_id++) {
-                    std::vector<cl::Device> device;
-
-                    platform[p_id].getDevices(CL_DEVICE_TYPE_ALL, &device);
-
-                    for(size_t d_id = 0; d_id < device.size(); d_id++) {
-                        std::ostringstream id;
+                for(size_t d_id = 0; d_id < device.size(); d_id++) {
+                    std::ostringstream id;
 #ifdef WIN32
-#  ifdef _MSC_VER
-#    pragma warning(push)
-#    pragma warning(disable: 4996)
-#  endif
-                        id << (lock_dir ? lock_dir : getenv("TEMP")) << "\\";
-#  ifdef _MSC_VER
-#    pragma warning(pop)
-#  endif
+                    id << (lock_dir ? lock_dir : boost::compute::detail::getenv("TEMP")) << "\\";
 #else
-                        id << (lock_dir ? lock_dir : "/tmp") << "/";
+                    id << (lock_dir ? lock_dir : "/tmp") << "/";
 #endif
-                        id << "vexcl_device_" << p_id << "_" << d_id << ".lock";
+                    id << "vexcl_device_" << d_id << ".lock";
 
-                        uids[device[d_id]()] = id.str();
-                    }
+                    uids[device[d_id].get()] = id.str();
                 }
 
                 return uids;
@@ -287,11 +249,11 @@ namespace Filter {
             ExclusiveFilter(Filter&& filter)
                 : filter(std::forward<Filter>(filter)) {}
 
-            bool operator()(const cl::Device &d) const {
+            bool operator()(const boost::compute::device &d) const {
                 static std::map<cl_device_id, std::string> dev_uids = get_uids();
                 static /*thread_local*/ std::vector<std::unique_ptr<locker>> locks;
 
-                std::unique_ptr<locker> lck(new locker(dev_uids[d()]));
+                std::unique_ptr<locker> lck(new locker(dev_uids[d.get()]));
 
                 if (lck->try_lock() && filter(d)) {
                     locks.push_back(std::move(lck));
@@ -300,7 +262,6 @@ namespace Filter {
 
                 return false;
             }
-
     };
 
     /// Allows exclusive access to compute devices across several processes.

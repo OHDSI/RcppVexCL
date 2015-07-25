@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,7 @@ THE SOFTWARE.
 #include <boost/proto/proto.hpp>
 #include <boost/io/ios_state.hpp>
 #include <boost/iterator/iterator_facade.hpp>
+#include <boost/thread.hpp>
 
 #include <vexcl/backend.hpp>
 #include <vexcl/util.hpp>
@@ -87,6 +88,8 @@ struct partitioning_scheme {
     typedef std::function< double(const backend::command_queue&) > weight_function;
 
     static void set(weight_function f) {
+        boost::lock_guard<boost::mutex> lock(mx);
+
         if (!is_set) {
             weight = f;
             is_set = true;
@@ -104,6 +107,16 @@ struct partitioning_scheme {
         static bool is_set;
         static weight_function weight;
         static std::map<backend::device_id, double> device_weight;
+        static boost::mutex mx;
+
+        static bool init_weight_function() {
+            boost::lock_guard<boost::mutex> lock(mx);
+            if (!is_set) {
+                weight = device_vector_perf;
+                is_set = true;
+            }
+            return true;
+        }
 };
 
 template <bool dummy>
@@ -113,13 +126,14 @@ template <bool dummy>
 std::map<backend::device_id, double> partitioning_scheme<dummy>::device_weight;
 
 template <bool dummy>
+boost::mutex partitioning_scheme<dummy>::mx;
+
+template <bool dummy>
 std::vector<size_t> partitioning_scheme<dummy>::get(size_t n,
         const std::vector<backend::command_queue> &queue)
 {
-    if (!is_set) {
-        weight = device_vector_perf;
-        is_set = true;
-    }
+    static const bool once = init_weight_function();
+    (void)once; // do not warn about unused variable
 
     std::vector<size_t> part;
     part.reserve(queue.size() + 1);
@@ -355,6 +369,9 @@ class vector : public vector_terminal_expression {
         /// Empty constructor.
         vector() {}
 
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    private:
+#endif
         /// Copy constructor.
         vector(const vector &v) : queue(v.queue), part(v.part)
         {
@@ -365,6 +382,9 @@ class vector : public vector_terminal_expression {
             if (size()) allocate_buffers(backend::MEM_READ_WRITE, 0);
             *this = v;
         }
+#ifdef VEXCL_NO_COPY_CONSTRUCTORS
+    public:
+#endif
 
         /// Wrap a native buffer
         vector(const backend::command_queue &q,
@@ -789,7 +809,7 @@ class vector : public vector_terminal_expression {
         }
 
     private:
-        std::vector<backend::command_queue>      queue;
+        mutable std::vector<backend::command_queue> queue;
         std::vector<size_t>                      part;
         std::vector< backend::device_vector<T> > buf;
 

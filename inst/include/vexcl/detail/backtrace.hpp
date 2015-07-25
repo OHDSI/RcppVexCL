@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_CUDA_HPP
-#define VEXCL_BACKEND_CUDA_HPP
+#ifndef VEXCL_DETAIL_BACKTRACE_HPP
+#define VEXCL_DETAIL_BACKTRACE_HPP
 
 /*
 The MIT License
@@ -26,23 +26,42 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/cuda.hpp
+ * \file   vexcl/detail/backtrace.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  CUDA backend for compute kernel generation/compilation/launching.
+ * \brief  Print backtrace if possible.
  */
 
-#ifndef VEXCL_BACKEND_CUDA
-#  define VEXCL_BACKEND_CUDA
+#include <iostream>
+
+#ifdef __linux__
+#  include <execinfo.h>
+#  include <stdlib.h>
 #endif
 
-#include <cuda.h>
+namespace vex {
+namespace detail {
 
-#include <vexcl/backend/cuda/error.hpp>
-#include <vexcl/backend/cuda/context.hpp>
-#include <vexcl/backend/cuda/filter.hpp>
-#include <vexcl/backend/cuda/device_vector.hpp>
-#include <vexcl/backend/cuda/source.hpp>
-#include <vexcl/backend/cuda/compiler.hpp>
-#include <vexcl/backend/cuda/kernel.hpp>
+#ifdef __linux__
+inline void print_backtrace() {
+    const size_t nbuf = 100;
+    void *buffer[nbuf];
+
+    int nptrs = backtrace(buffer, nbuf);
+
+    if (char **strings = backtrace_symbols(buffer, nptrs)) {
+        for(int i = 0; i < nptrs; ++i)
+            std::cerr << strings[i] << "\n";
+
+        std::cerr << std::endl;
+
+        free(strings);
+    }
+}
+#else
+inline void print_backtrace() {}
+#endif
+
+} // namespace detail
+} // namespace vex
 
 #endif

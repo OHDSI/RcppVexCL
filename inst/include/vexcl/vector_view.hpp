@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -525,7 +525,7 @@ const index_gen<0> indices;
  vex::vector<double> y(ctx, n)
  vex::vector<double> z(ctx, n / 2);
 
- vex::slicer<2> slice({n, n});
+ vex::slicer<2> slice(vex::extents[n][n]);
 
  y = slice[42](x);                // Put 42-th row of x into y.
  y = slice[range()][42](x);       // Put 42-th column of x into y.
@@ -806,29 +806,32 @@ struct local_terminal_init< reduced_vector_view<Expr, NDIM, NR, RDC> > {
             << "size_t pos = idx;";
 
         src.new_line()
-            << "size_t ptr" << NDIM - NR - 1 << " = "
-            << prm_name << "_start + (pos % " << prm_name << "_length"
+            << "size_t ptr" << NDIM - NR << " = "
+            << prm_name << "_start";
+        if (NDIM > NR) src
+            << " + (pos % " << prm_name << "_length"
             << NDIM - NR - 1 << ") * " << prm_name << "_stride"
-            << NDIM - NR - 1 << ";";
+            << NDIM - NR - 1;
+        src << ";";
 
-        for(size_t k = NDIM - NR - 1; k-- > 0;) {
+        for(size_t k = NDIM - NR; k-- > 1;) {
             src.new_line()
-                << "pos /= " << prm_name << "_length" << k + 1 << ";";
+                << "pos /= " << prm_name << "_length" << k << ";";
             src.new_line()
-                << "ptr" << NDIM - NR - 1 << " += (pos % " << prm_name
-                << "_length" << k << ") * " << prm_name << "_stride" << k << ";";
+                << "ptr" << NDIM - NR << " += (pos % " << prm_name
+                << "_length" << k - 1 << ") * " << prm_name << "_stride" << k - 1 << ";";
         }
 
         for(size_t k = NDIM - NR; k < NDIM; ++k) {
             src.new_line()
-                << "for(size_t i" << k << " = 0, ptr" << k << " = ptr"
-                << k - 1 << "; i" << k << " < " << prm_name << "_length" << k
-                << "; ++i" << k << ", ptr" << k << " += " << prm_name
+                << "for(size_t i" << k << " = 0, ptr" << k + 1 << " = ptr"
+                << k << "; i" << k << " < " << prm_name << "_length" << k
+                << "; ++i" << k << ", ptr" << k + 1 << " += " << prm_name
                 << "_stride" << k << ")";
             src.open("{");
         }
 
-        src.new_line() << "size_t idx = ptr" << NDIM - 1 << ";";
+        src.new_line() << "size_t idx = ptr" << NDIM << ";";
 
         detail::output_local_preamble init_ctx(src, queue, prm_name, state);
         boost::proto::eval(boost::proto::as_child(term.expr), init_ctx);

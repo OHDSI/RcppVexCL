@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_OPENCL_DEVICE_VECTOR_HPP
-#define VEXCL_BACKEND_OPENCL_DEVICE_VECTOR_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_DEVICE_VECTOR_HPP
+#define VEXCL_BACKEND_COMPUTE_DEVICE_VECTOR_HPP
 
 /*
 The MIT License
@@ -26,22 +26,16 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/opencl/device_vector.hpp
+ * \file   vexcl/backend/compute/device_vector.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  OpenCL device vector.
+ * \brief  Device vector for Boost.Compute backend.
  */
 
-#ifndef __CL_ENABLE_EXCEPTIONS
-#  define __CL_ENABLE_EXCEPTIONS
-#endif
-#ifndef CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#define CL_USE_DEPRECATED_OPENCL_2_0_APIS
-#endif
-#include <CL/cl.hpp>
+#include <boost/compute/core.hpp>
 
 namespace vex {
 namespace backend {
-namespace opencl {
+namespace compute {
 
 typedef cl_mem_flags mem_flags;
 
@@ -57,63 +51,79 @@ class device_vector {
 
         device_vector() {}
 
-        device_vector(const cl::CommandQueue &q, size_t n,
+        device_vector(const boost::compute::command_queue &q, size_t n,
                 const T *host = 0, mem_flags flags = MEM_READ_WRITE)
         {
             if (host && !(flags & CL_MEM_USE_HOST_PTR))
                 flags |= CL_MEM_COPY_HOST_PTR;
 
             if (n)
-                buffer = cl::Buffer(q.getInfo<CL_QUEUE_CONTEXT>(), flags,
-                        n * sizeof(T), static_cast<void*>(const_cast<T*>(host)));
+                buffer = boost::compute::buffer(q.get_context(), n * sizeof(T),
+                        flags, static_cast<void*>(const_cast<T*>(host)));
         }
 
-        device_vector(cl::Buffer buffer) : buffer( std::move(buffer) ) {}
+        device_vector(boost::compute::buffer buffer) : buffer( std::move(buffer) ) {}
 
-        void write(const cl::CommandQueue &q, size_t offset, size_t size, const T *host,
-                bool blocking = false) const
+        void write(boost::compute::command_queue q, size_t offset,
+                size_t size, const T *host, bool blocking = false
+                ) const
         {
-            if (size)
-                q.enqueueWriteBuffer(
-                        buffer, blocking ? CL_TRUE : CL_FALSE,
-                        sizeof(T) * offset, sizeof(T) * size, host
+            if (size) {
+                if (blocking) {
+                    q.enqueue_write_buffer(
+                        buffer, sizeof(T) * offset, sizeof(T) * size, host
                         );
+                } else {
+                    q.enqueue_write_buffer_async(
+                        buffer, sizeof(T) * offset, sizeof(T) * size, host
+                        );
+                }
+            }
         }
 
-        void read(const cl::CommandQueue &q, size_t offset, size_t size, T *host,
-                bool blocking = false) const
+        void read(boost::compute::command_queue q, size_t offset,
+                size_t size, T *host, bool blocking = false
+                ) const
         {
-            if (size)
-                q.enqueueReadBuffer(
-                        buffer, blocking ? CL_TRUE : CL_FALSE,
-                        sizeof(T) * offset, sizeof(T) * size, host
-                        );
+            if (size) {
+                if (blocking) {
+                    q.enqueue_read_buffer(
+                            buffer, sizeof(T) * offset, sizeof(T) * size, host
+                            );
+                } else {
+                    q.enqueue_read_buffer_async(
+                            buffer, sizeof(T) * offset, sizeof(T) * size, host
+                            );
+                }
+            }
         }
 
         size_t size() const {
-            return buffer.getInfo<CL_MEM_SIZE>() / sizeof(T);
+            return buffer.size() / sizeof(T);
         }
 
         struct buffer_unmapper {
-            const cl::CommandQueue &queue;
-            const cl::Buffer       &buffer;
+            boost::compute::command_queue queue;
+            const boost::compute::buffer  &buffer;
 
-            buffer_unmapper(const cl::CommandQueue &q, const cl::Buffer &b)
-                : queue(q), buffer(b)
+            buffer_unmapper(
+                    const boost::compute::command_queue &q,
+                    const boost::compute::buffer &b
+                    ) : queue(q), buffer(b)
             {}
 
-            void operator()(T* ptr) const {
-                queue.enqueueUnmapMemObject(buffer, ptr);
+            void operator()(T* ptr) {
+                queue.enqueue_unmap_buffer(buffer, ptr);
             }
         };
 
         typedef std::unique_ptr<T[], buffer_unmapper> mapped_array;
 
-        mapped_array map(const cl::CommandQueue &q) {
+        mapped_array map(boost::compute::command_queue q) {
             return mapped_array(
                     static_cast<T*>(
-                        q.enqueueMapBuffer(
-                            buffer, CL_TRUE, CL_MAP_READ | CL_MAP_WRITE,
+                        q.enqueue_map_buffer(
+                            buffer, CL_MAP_READ | CL_MAP_WRITE,
                             0, size() * sizeof(T)
                             )
                         ),
@@ -122,17 +132,17 @@ class device_vector {
         }
 
         cl_mem raw() const {
-            return buffer();
+            return buffer.get();
         }
 
-        cl::Buffer raw_buffer() const {
+        boost::compute::buffer raw_buffer() const {
             return buffer;
         }
     private:
-        cl::Buffer buffer;
+        boost::compute::buffer buffer;
 };
 
-} // namespace opencl
+} // namespace compute
 } // namespace backend
 } // namespace vex
 

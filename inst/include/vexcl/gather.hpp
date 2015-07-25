@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -41,15 +41,21 @@ THE SOFTWARE.
 
 namespace vex {
 
+/// Gathers vector elements at specified indices.
 template <typename T>
 class gather {
     public:
+        /// Constructor.
+        /**
+         * \param queue   VexCL context.
+         * \param indices Indices of elements to be gathered.
+         */
         gather(
-                const std::vector<backend::command_queue> &queue,
+                const std::vector<backend::command_queue> &q,
                 size_t src_size, std::vector<size_t> indices
               )
-            : queue(queue), ptr(queue.size() + 1, 0),
-              idx(queue.size()), val(queue.size())
+            : queue(q), ptr(q.size() + 1, 0),
+              idx(q.size()), val(q.size())
         {
             assert(std::is_sorted(indices.begin(), indices.end()));
 
@@ -76,6 +82,7 @@ class gather {
                 if (ptr[d + 1] - ptr[d]) queue[d].finish();
         }
 
+        /// Gather elements of device vector into host vector.
         template <class HostVector>
         void operator()(const vex::vector<T> &src, HostVector &dst) {
             using namespace detail;

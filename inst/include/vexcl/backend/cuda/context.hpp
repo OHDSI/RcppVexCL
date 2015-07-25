@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,7 @@ namespace cuda {
 
 /// \cond INTERNAL
 inline CUresult do_init() {
-    static CUresult rc = cuInit(0);
+    static const CUresult rc = cuInit(0);
     return rc;
 }
 
@@ -80,10 +80,15 @@ struct deleter_impl<CUstream> {
 
 // Knows how to dispose of various CUDA handles.
 struct deleter {
+    deleter(CUcontext ctx) : ctx(ctx) {}
+
     template <class Handle>
     void operator()(Handle handle) const {
+	if (ctx) cuda_check( cuCtxSetCurrent(ctx) );
         deleter_impl<Handle>::dispose(handle);
     }
+
+    CUcontext ctx;
 };
 
 }
@@ -153,7 +158,7 @@ class context {
 
         /// Creates a CUDA context.
         context(device dev, unsigned flags = 0)
-            : c( create(dev, flags), detail::deleter() )
+            : c( create(dev, flags), detail::deleter(0) )
         {
             cuda_check( do_init() );
         }
@@ -192,7 +197,7 @@ class command_queue {
     public:
         /// Create command queue for the given context and device.
         command_queue(const vex::backend::context &ctx, vex::backend::device dev, unsigned flags)
-            : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter() ), f(flags)
+            : ctx(ctx), dev(dev), s( create(ctx, flags), detail::deleter(ctx.raw()) ), f(flags)
         { }
 
         /// Blocks until all previously queued commands in command_queue are issued to the associated device and have completed.

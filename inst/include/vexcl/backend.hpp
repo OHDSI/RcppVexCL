@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -28,22 +28,13 @@ THE SOFTWARE.
 /**
  * \file   vexcl/backend.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  Compile-time selection of backend (OpenCL/CUDA).
+ * \brief  Compile-time selection of backend (OpenCL/CUDA/Boost.Compute).
+ *
+ * \note Definitions from either vex::backend::opencl or vex::backend::cuda
+ * are directly brought into vex::backend namespace. Define either
+ * VEXCL_BACKEND_OPENCL or VEXCL_BACKEND_CUDA macro in order to select
+ * backend. You will also need to link to libOpenCL or libcuda accordingly.
  */
-
-namespace vex {
-    /// Backend-specific functionality.
-    /**
-     * \note Definitions from either vex::backend::opencl or vex::backend::cuda
-     * are directly brought into vex::backend namespace. Define either
-     * VEXCL_BACKEND_OPENCL or VEXCL_BACKEND_CUDA macro in order to select
-     * backend. You will also need to link to libOpenCL or libcuda accordingly.
-     */
-    namespace backend {
-        namespace cuda {}
-        using namespace cuda;
-    }
-}
 
 #if defined(VEXCL_BACKEND_CUDA)
 
@@ -56,7 +47,22 @@ namespace vex {
 
 #include <vexcl/backend/cuda.hpp>
 
-#else // defined(VEXCL_BACKEND_OPENCL)
+#elif defined(VEXCL_BACKEND_COMPUTE)
+
+namespace vex {
+    namespace backend {
+        namespace compute {}
+        using namespace compute;
+    }
+}
+
+#ifdef VEXCL_CACHE_KERNELS
+#  define BOOST_COMPUTE_USE_OFFLINE_CACHE
+#endif
+
+#include <vexcl/backend/compute.hpp>
+
+#else // either defined(VEXCL_BACKEND_OPENCL) or by default
 
 namespace vex {
     namespace backend {
@@ -67,10 +73,6 @@ namespace vex {
 
 #include <vexcl/backend/opencl.hpp>
 
-#endif
-
-#if defined(VEXCL_BACKEND_OPENCL) && defined(VEXCL_BACKEND_CUDA)
-#  error Both OpenCL and CUDA backends are selected. Make your mind!
 #endif
 
 namespace vex {

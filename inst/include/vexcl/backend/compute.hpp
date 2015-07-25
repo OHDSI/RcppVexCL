@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_CUDA_HPP
-#define VEXCL_BACKEND_CUDA_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_HPP
+#define VEXCL_BACKEND_COMPUTE_HPP
 
 /*
 The MIT License
@@ -26,23 +26,34 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/cuda.hpp
+ * \file   vexcl/backend/compute.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  CUDA backend for compute kernel generation/compilation/launching.
+ * \brief  OpenCL backend based on Boost.Compute core API.
  */
 
-#ifndef VEXCL_BACKEND_CUDA
-#  define VEXCL_BACKEND_CUDA
+#ifndef VEXCL_BACKEND_COMPUTE
+#  define VEXCL_BACKEND_COMPUTE
 #endif
 
-#include <cuda.h>
+#include <vexcl/backend/compute/error.hpp>
+#include <vexcl/backend/compute/context.hpp>
+#include <vexcl/backend/compute/filter.hpp>
+#include <vexcl/backend/compute/device_vector.hpp>
 
-#include <vexcl/backend/cuda/error.hpp>
-#include <vexcl/backend/cuda/context.hpp>
-#include <vexcl/backend/cuda/filter.hpp>
-#include <vexcl/backend/cuda/device_vector.hpp>
-#include <vexcl/backend/cuda/source.hpp>
-#include <vexcl/backend/cuda/compiler.hpp>
-#include <vexcl/backend/cuda/kernel.hpp>
+// Since Boost.Compute is based on OpenCL,
+// we can reuse source generator from the OpenCL backend.
+#include <vexcl/backend/opencl/source.hpp>
+
+namespace vex {
+    namespace backend {
+        namespace compute {
+            using vex::backend::opencl::standard_kernel_header;
+            using vex::backend::opencl::source_generator;
+        }
+    }
+}
+
+#include <vexcl/backend/compute/compiler.hpp>
+#include <vexcl/backend/compute/kernel.hpp>
 
 #endif

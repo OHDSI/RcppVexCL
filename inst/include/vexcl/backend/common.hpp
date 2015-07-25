@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -41,6 +41,7 @@ THE SOFTWARE.
 #include <boost/uuid/sha1.hpp>
 #include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/thread.hpp>
 
 namespace vex {
 
@@ -55,26 +56,36 @@ template <device_options_kind kind>
 struct device_options {
     static const std::string& get(const backend::command_queue &q) {
         auto dev = backend::get_device_id(q);
+
+        boost::lock_guard<boost::mutex> lock(options_mx);
         if (options[dev].empty()) options[dev].push_back("");
         return options[dev].back();
     }
 
     static void push(const backend::command_queue &q, const std::string &str) {
         auto dev = backend::get_device_id(q);
+
+        boost::lock_guard<boost::mutex> lock(options_mx);
         options[dev].push_back(str);
     }
 
     static void pop(const backend::command_queue &q) {
         auto dev = backend::get_device_id(q);
+
+        boost::lock_guard<boost::mutex> lock(options_mx);
         if (!options[dev].empty()) options[dev].pop_back();
     }
 
     private:
         static std::map<backend::device_id, std::vector<std::string> > options;
+        static boost::mutex options_mx;
 };
 
 template <device_options_kind kind>
 std::map<backend::device_id, std::vector<std::string> > device_options<kind>::options;
+
+template <device_options_kind kind>
+boost::mutex device_options<kind>::options_mx;
 
 inline std::string get_compile_options(const backend::command_queue &q) {
     return device_options<compile_options>::get(q);
@@ -171,20 +182,31 @@ inline std::string program_binaries_path(const std::string &hash, bool create = 
     return dir + path_delim();
 }
 
-/// Returns SHA1 hash of the string parameter.
-inline std::string sha1(const std::string &src) {
-    boost::uuids::detail::sha1 sha1;
-    sha1.process_bytes(src.c_str(), src.size());
+/// SHA1 hasher.
+class sha1_hasher {
+    public:
+        sha1_hasher(const std::string &s = "") {
+            if (!s.empty()) this->process(s);
+        }
 
-    unsigned int hash[5];
-    sha1.get_digest(hash);
+        sha1_hasher& process(const std::string &s) {
+            h.process_bytes(s.c_str(), s.size());
+            return *this;
+        }
 
-    std::ostringstream buf;
-    for(int i = 0; i < 5; ++i)
-        buf << std::hex << std::setfill('0') << std::setw(8) << hash[i];
+        operator std::string() {
+            unsigned int digest[5];
+            h.get_digest(digest);
 
-    return buf.str();
-}
+            std::ostringstream buf;
+            for(int i = 0; i < 5; ++i)
+                buf << std::hex << std::setfill('0') << std::setw(8) << digest[i];
+
+            return buf.str();
+        }
+    private:
+        boost::uuids::detail::sha1 h;
+};
 
 } // namespace vex
 

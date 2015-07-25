@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -44,12 +44,12 @@ THE SOFTWARE.
 #include <vector>
 #include <cassert>
 
-// #if defined(_MSC_VER) && (_MSC_VER < 1700)
-// #  define VEXCL_USE_BOOST_CHRONO
-// #  include <boost/chrono.hpp>
-// #else
+#if defined(_MSC_VER) && (_MSC_VER < 1700)
+#  define VEXCL_USE_BOOST_CHRONO
+#  include <boost/chrono.hpp>
+#else
 #  include <chrono>
-// #endif
+#endif
 
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -248,7 +248,7 @@ class profiler {
 
         class cl_profile_unit : public profile_unit {
             public:
-                cl_profile_unit(const std::string &name, const std::vector<backend::command_queue> &queue)
+                cl_profile_unit(const std::string &name, std::vector<backend::command_queue> &queue)
                     : profile_unit(name), queue(queue) {}
 
                 void tic() {
@@ -265,7 +265,7 @@ class profiler {
                     return profile_unit::toc();
                 }
             private:
-                const std::vector<backend::command_queue> &queue;
+                std::vector<backend::command_queue> &queue;
         };
 
     public:
@@ -341,7 +341,7 @@ class profiler {
         }
 
     private:
-        const std::vector<backend::command_queue> &queue;
+        std::vector<backend::command_queue> queue;
         std::deque<std::shared_ptr<profile_unit>> stack;
 };
 

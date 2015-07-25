@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,8 @@ THE SOFTWARE.
 #endif
 
 #include <cuda.h>
+
+#include <vexcl/detail/backtrace.hpp>
 
 namespace std {
 
@@ -131,7 +133,10 @@ class error : public std::runtime_error {
 
 /// \cond INTERNAL
 inline void check(CUresult rc, const char *file, int line) {
-    if (rc != CUDA_SUCCESS) throw error(rc, file, line);
+    if (rc != CUDA_SUCCESS) {
+        vex::detail::print_backtrace();
+	throw error(rc, file, line);
+    }
 }
 /// \endcond
 

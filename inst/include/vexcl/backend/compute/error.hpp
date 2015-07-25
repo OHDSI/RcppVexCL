@@ -1,5 +1,5 @@
-#ifndef VEXCL_BACKEND_CUDA_HPP
-#define VEXCL_BACKEND_CUDA_HPP
+#ifndef VEXCL_BACKEND_COMPUTE_ERROR_HPP
+#define VEXCL_BACKEND_COMPUTE_ERROR_HPP
 
 /*
 The MIT License
@@ -26,23 +26,31 @@ THE SOFTWARE.
 */
 
 /**
- * \file   vexcl/backend/cuda.hpp
+ * \file   vexcl/backend/compute/error.hpp
  * \author Denis Demidov <dennis.demidov@gmail.com>
- * \brief  CUDA backend for compute kernel generation/compilation/launching.
+ * \brief  Output Boost.Compute errors to a std::stream.
  */
 
-#ifndef VEXCL_BACKEND_CUDA
-#  define VEXCL_BACKEND_CUDA
-#endif
+#include <iostream>
+#include <boost/compute/core.hpp>
 
-#include <cuda.h>
+namespace vex {
+namespace backend {
+namespace compute {
 
-#include <vexcl/backend/cuda/error.hpp>
-#include <vexcl/backend/cuda/context.hpp>
-#include <vexcl/backend/cuda/filter.hpp>
-#include <vexcl/backend/cuda/device_vector.hpp>
-#include <vexcl/backend/cuda/source.hpp>
-#include <vexcl/backend/cuda/compiler.hpp>
-#include <vexcl/backend/cuda/kernel.hpp>
+typedef std::exception error;
+
+} // namespace compute
+} // namespace backend
+} // namespace vex
+
+namespace std {
+
+/// Sends description of an OpenCL error to the output stream.
+inline std::ostream& operator<<(std::ostream &os, const vex::backend::compute::error &e) {
+    return os << e.what();
+}
+
+}
 
 #endif

@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -38,6 +38,7 @@ THE SOFTWARE.
 #include <vexcl/element_index.hpp>
 #include <vexcl/vector.hpp>
 #include <vexcl/vector_view.hpp>
+#include <vexcl/tensordot.hpp>
 #include <vexcl/vector_pointer.hpp>
 #include <vexcl/tagged_terminal.hpp>
 #include <vexcl/temporary.hpp>
@@ -58,5 +59,10 @@ THE SOFTWARE.
 #include <vexcl/reduce_by_key.hpp>
 #include <vexcl/profiler.hpp>
 #include <vexcl/function.hpp>
+#include <vexcl/logical.hpp>
+
+#ifndef VEXCL_BACKEND_CUDA
+#include <vexcl/constant_address_space.hpp>
+#endif
 
 #endif

@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -207,13 +207,10 @@ namespace Filter {
         }
 
         bool operator()(const backend::device &d) const {
-            if (filter.empty()) return true;
+            for(size_t i = 0; i < filter.size(); ++i)
+                if (!filter[i](d)) return false;
 
-            return std::all_of(
-                    filter.begin(), filter.end(),
-                    [d](const std::function<bool(const backend::device)> &f) {
-                        return f(d);
-                    });
+            return true;
         }
 
         private:
@@ -257,11 +254,11 @@ class StaticContext {
             return *instance;
         }
     private:
-        static Context *instance;
+        static /*thread_local*/ Context *instance;
 };
 
 template <bool dummy>
-Context* StaticContext<dummy>::instance = 0;
+/*thread_local*/ Context* StaticContext<dummy>::instance = 0;
 
 /// Returns reference to the latest instance of vex::Context.
 inline const Context& current_context() {
@@ -317,7 +314,15 @@ class Context {
             return c;
         }
 
+        std::vector<backend::context>& context() {
+            return c;
+        }
+
         const backend::context& context(unsigned d) const {
+            return c[d];
+        }
+
+        backend::context& context(unsigned d) {
             return c[d];
         }
 
@@ -325,7 +330,15 @@ class Context {
             return q;
         }
 
+        std::vector<backend::command_queue>& queue() {
+            return q;
+        }
+
         operator const std::vector<backend::command_queue>&() const {
+            return q;
+        }
+
+        operator std::vector<backend::command_queue>&() {
             return q;
         }
 
@@ -333,7 +346,11 @@ class Context {
             return q[d];
         }
 
-        const backend::device device(unsigned d) const {
+        backend::command_queue& queue(unsigned d) {
+            return q[d];
+        }
+
+        backend::device device(unsigned d) const {
             return backend::device( backend::get_device_id(q[d]) );
         }
 
@@ -350,6 +367,13 @@ class Context {
         }
 
         void finish() const {
+            for(auto queue = q.begin(); queue != q.end(); ++queue) {
+                backend::command_queue q = *queue;
+                q.finish();
+            }
+        }
+
+        void finish() {
             for(auto queue = q.begin(); queue != q.end(); ++queue)
                 queue->finish();
         }

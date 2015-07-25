@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -36,8 +36,12 @@ THE SOFTWARE.
 #include <vexcl/sort.hpp>
 #include <boost/compute.hpp>
 
-#ifdef VEXCL_BACKEND_CUDA
-#  error Boost.Compute interoperation is not supported for the CUDA backend!
+#if !defined(VEXCL_BACKEND_OPENCL)
+#  if defined(VEXCL_BACKEND_CUDA)
+#    error Boost.Compute interoperation is not supported for the CUDA backend!
+#  else
+#    error The code below is not required for Boost.Compute backend!
+#  endif
 #endif
 
 namespace vex {

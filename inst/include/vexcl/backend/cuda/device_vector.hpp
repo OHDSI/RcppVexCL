@@ -4,7 +4,7 @@
 /*
 The MIT License
 
-Copyright (c) 2012-2014 Denis Demidov <dennis.demidov@gmail.com>
+Copyright (c) 2012-2015 Denis Demidov <dennis.demidov@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -83,25 +83,23 @@ class device_vector {
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
 
-                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
+                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter(q.context().raw()) );
             }
         }
 
         /// Allocates memory buffer on the device associated with the given queue.
         template <typename H>
         device_vector(const command_queue &q, size_t n,
-                const H *host = 0, mem_flags flags = MEM_READ_WRITE)
+                const H *host = 0, mem_flags = MEM_READ_WRITE)
             : ctx(q.context()), n(n)
         {
-            (void)flags;
-
             if (n) {
                 ctx.set_current();
 
                 CUdeviceptr ptr;
                 cuda_check( cuMemAlloc(&ptr, n * sizeof(T)) );
 
-                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter() );
+                buffer.reset(reinterpret_cast<char*>(static_cast<size_t>(ptr)), detail::deleter(q.context().raw()) );
 
                 if (host) {
                     if (std::is_same<T, H>::value)
@@ -119,10 +117,8 @@ class device_vector {
 
         /// Copies data from host memory to device.
         void write(const command_queue&, size_t offset, size_t size, const T *host,
-                bool blocking = false) const
+                bool /*blocking*/ = false) const
         {
-            (void)blocking;
-
             if (size) {
                 ctx.set_current();
                 cuda_check( cuMemcpyHtoD(raw() + offset * sizeof(T), host, size * sizeof(T)) );
@@ -131,10 +127,8 @@ class device_vector {
 
         /// Copies data from device to host memory.
         void read(const command_queue&, size_t offset, size_t size, T *host,
-                bool blocking = false) const
+                bool /*blocking*/ = false) const
         {
-            (void)blocking;
-
             if (size) {
                 ctx.set_current();
                 cuda_check( cuMemcpyDtoH(host, raw() + offset * sizeof(T), size * sizeof(T)) );
