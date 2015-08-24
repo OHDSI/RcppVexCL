@@ -49,19 +49,19 @@ namespace boost { namespace fusion
             return *this;
         }
 
-        BOOST_CONSTEXPR BOOST_FUSION_GPU_ENABLED
-        unused_type const&
-        operator=(unused_type const&) const BOOST_NOEXCEPT
-        {
-            return *this;
-        }
+//         BOOST_CONSTEXPR BOOST_FUSION_GPU_ENABLED
+//         unused_type const&
+//         operator=(unused_type const&) const BOOST_NOEXCEPT
+//         {
+//             return *this;
+//         }
 //
-        BOOST_CXX14_CONSTEXPR BOOST_FUSION_GPU_ENABLED
-        unused_type&
-        operator=(unused_type const&) BOOST_NOEXCEPT
-        {
-            return *this;
-        }
+//         BOOST_CXX14_CONSTEXPR BOOST_FUSION_GPU_ENABLED
+//         unused_type&
+//         operator=(unused_type const&) BOOST_NOEXCEPT
+//         {
+//             return *this;
+//         }
     };
 
 //     BOOST_CONSTEXPR unused_type const unused = unused_type();
