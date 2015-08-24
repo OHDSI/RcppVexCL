@@ -18,6 +18,7 @@ case $RHOST in
         # Do something specific for mac
         OPENCL_LIB="-framework OpenCL"
         VEXCL_FLAGS=""
+        AC_CONFIG_FILES([inst/include/CL/cl_platform.h])
         ;;
   Linux*)
         # Do something specific for linux

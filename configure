@@ -1684,6 +1684,8 @@ case $RHOST in
         # Do something specific for mac
         OPENCL_LIB="-framework OpenCL"
         VEXCL_FLAGS=""
+        ac_config_files="$ac_config_files inst/include/CL/cl_platform.h"
+
         ;;
   Linux*)
         # Do something specific for linux
@@ -2410,6 +2412,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
+    "inst/include/CL/cl_platform.h") CONFIG_FILES="$CONFIG_FILES inst/include/CL/cl_platform.h" ;;
     "src/Makevars") CONFIG_FILES="$CONFIG_FILES src/Makevars" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
