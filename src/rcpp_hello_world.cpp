@@ -22,7 +22,7 @@ List rcpp_hello_world() {
 
 #define SHOW_DEVPROP(name) \
         cout << "    " << left << setw(32) << #name << " = " \
-                  << d->getInfo< name >() << endl
+                  << d->getInfo< name >() << endl;
 
         SHOW_DEVPROP(CL_DEVICE_VENDOR);
         SHOW_DEVPROP(CL_DEVICE_VERSION);
@@ -70,6 +70,6 @@ List rcpp_hello_world() {
     CharacterVector x = CharacterVector::create( "foo", "bar" )  ;
     NumericVector y   = NumericVector::create( 0.0, 1.0 ) ;
     List z            = List::create( x, y ) ;
-    
+      
     return z ;
 }
